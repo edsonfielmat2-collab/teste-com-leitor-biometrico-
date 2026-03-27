@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+<meta charset="UTF-8" />
+<title>Formulário – Declaração</title>
+
+<style>
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #ffffff;
+    color: #111;
+    margin: 0;
+    padding: 24px;
+  }
+
+  .wrapper {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  h2 {
+    text-align: center;
+    color: #EB0029;
+    font-size: 26px;
+    margin-bottom: 22px;
+    font-weight: bold;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+
+  th, td {
+    border: 1px solid #e5e7eb;
+    padding: 12px;
+    vertical-align: top;
+  }
+
+  th {
+    background: #EB0029;
+    color: #fff;
+    text-align: center;
+    font-size: 15px;
+  }
+
+  tr:nth-child(even) td {
+    background: #fafafa;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+
+  button {
+    background: #EB0029;
+    color: white;
+    padding: 14px 26px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+    font-size: 17px;
+    width: 100%;
+  }
+
+  #assin-cert {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #fafafa;
+    padding: 16px;
+    margin-top: 14px;
+  }
+
+  #assin-cert h3 {
+    margin: 0 0 8px;
+  }
+
+  #hash {
+    font-family: monospace;
+    font-size: 12px;
+    color: #555;
+    margin-top: 8px;
+    word-break: break-all;
+  }
+
+  #btnDigital {
+    background: #0072ff;
+  }
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+  <h2>Formulário Declaratório</h2>
+
+  <form id="formEnvio" method="POST" action="https://formspree.io/f/xqeygqoe">
+
+    <!-- HASH SHA-256 GERADA PELO FORM -->
+    <input type="hidden" name="assinaturaHash" id="assinaturaHash">
+
+    <!-- ASSINATURA BIOMÉTRICA (WebAuthn) -->
+    <input type="hidden" name="webauthnSignature" id="webauthnSignature">
+
+    <table>
+      <tr>
+        <th>Pergunta</th>
+        <th>Resposta</th>
+      </tr>
+
+      <tr>
+        <td><strong>Nome Completo</strong></td>
+        <td><input name="nome" id="nome" type="text" required></td>
+      </tr>
+
+      <tr>
+        <td><strong>CPF</strong></td>
+        <td><input name="cpf" id="cpf" type="text" required></td>
+      </tr>
+
+      <tr>
+        <td><strong>Departamento</strong></td>
+        <td><input name="departamento" id="departamento" type="text" required></td>
+      </tr>
+
+      <tr>
+        <td><strong>E-mail Corporativo</strong></td>
+        <td><input name="email" id="email" type="email" required></td>
+      </tr>
+
+      <tr>
+        <td><strong>Cargo</strong></td>
+        <td><input name="cargo" id="cargo" type="text" required></td>
+      </tr>
+
+      <tr>
+        <td><strong>Assinatura Certificada</strong></td>
+        <td>
+
+          <label><strong>Nome na Assinatura:</strong></label>
+          <input name="assinaturaNome" id="assinaturaNome" type="text" required>
+
+          <label style="margin-top:10px; display:block;"><strong>CPF:</strong></label>
+          <input name="assinaturaCPF" id="assinaturaCPF" type="text" required>
+
+          <button type="button" id="btnDigital">Assinar com Digital (WebAuthn)</button>
+
+          <div id="assin-cert">
+            <h3>eSig — Assinatura Certificada</h3>
+
+            <div><strong>Nome:</strong> <span id="prevNome">—</span></div>
+            <div><strong>CPF:</strong> <span id="prevCPF">—</span></div>
+            <div><strong>Data:</strong> <span id="prevData"></span></div>
+
+            <div style="margin-top:10px;">
+              <strong>Código de Certificação (SHA‑256):</strong>
+              <div id="hash">—</div>
+            </div>
+          </div>
+
+        </td>
+      </tr>
+    </table>
+
+    <button type="submit">Enviar Formulário</button>
+  </form>
+</div>
+
+<script>
+// DATA E HORA FIXA
+const dataHora = new Date();
+const dataHoraISO = dataHora.toISOString();
+document.getElementById("prevData").textContent = dataHora.toLocaleString("pt-BR");
+
+// FUNÇÃO SHA-256
+async function gerarHash(texto) {
+  const enc = new TextEncoder().encode(texto);
+  const buffer = await crypto.subtle.digest("SHA-256", enc);
+  return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ATUALIZAR HASH
+async function atualizarHash() {
+  const n = document.getElementById("assinaturaNome").value.trim();
+  const c = document.getElementById("assinaturaCPF").value.trim();
+
+  document.getElementById("prevNome").textContent = n || "—";
+  document.getElementById("prevCPF").textContent = c || "—";
+
+  if (!n || !c) return;
+
+  const base = `${n}|${c}|${dataHoraISO}`;
+  const hash = await gerarHash(base);
+
+  document.getElementById("hash").textContent = hash;
+  document.getElementById("assinaturaHash").value = hash;
+}
+
+// EVENTOS
+document.getElementById("assinaturaNome").addEventListener("input", atualizarHash);
+document.getElementById("assinaturaCPF").addEventListener("input", atualizarHash);
+
+
+// ===============================
+// 🔵 AUTENTICAÇÃO BIOMÉTRICA (WebAuthn)
+// ===============================
+
+async function autenticarDigital() {
+  try {
+    const options = {
+      publicKey: {
+        challenge: new Uint8Array(32),
+        timeout: 60000,
+        userVerification: "required"
+      }
+    };
+
+    const result = await navigator.credentials.get(options);
+
+    const assinatura = {
+      clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(result.response.clientDataJSON))),
+      authenticatorData: btoa(String.fromCharCode(...new Uint8Array(result.response.authenticatorData))),
+      signature: btoa(String.fromCharCode(...new Uint8Array(result.response.signature)))
+    };
+
+    document.getElementById("webauthnSignature").value = JSON.stringify(assinatura);
+
+    alert("Assinatura biométrica concluída com sucesso!");
+
+  } catch (e) {
+    alert("Falha ao autenticar por biometria: " + e);
+  }
+}
+
+document.getElementById("btnDigital").addEventListener("click", autenticarDigital);
+
+</script>
+
+</body>
+</html>
